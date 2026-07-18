@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Discovery Engine — Preview (no backend)</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #0a0a0a;
+    --red: #d42b2b;
+    --line: rgba(255,255,255,0.1);
+    --line-strong: rgba(255,255,255,0.18);
+    --text: #ededed;
+    --text-dim: rgba(237,237,237,0.55);
+    --text-faint: rgba(237,237,237,0.32);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    position: relative;
+    overflow-x: hidden;
+  }
+  .scanlines {
+    position: fixed; inset: 0; pointer-events: none; z-index: 40;
+    background-image: repeating-linear-gradient(to bottom, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 3px);
+    mix-blend-mode: overlay; opacity: 0.5;
+  }
+  .dot-grid { background-image: radial-gradient(var(--line) 1px, transparent 1px); background-size: 24px 24px; }
+  .file-label { letter-spacing: 0.14em; text-transform: uppercase; font-size: 0.68rem; color: var(--text-dim); }
+  h1, h2, .display { font-family: 'Space Grotesk', sans-serif; font-weight: 700; }
+  .screen { display: none; min-height: 100vh; }
+  .screen.active { display: block; }
+
+  /* ---- Landing ---- */
+  #landing .wrap { max-width: 1000px; margin: 0 auto; padding: 40px 24px; min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; }
+  #landing header { display: flex; justify-content: space-between; }
+  #landing h1 { font-size: 42px; line-height: 1.05; letter-spacing: -0.01em; margin: 24px 0; }
+  @media (min-width: 768px) { #landing h1 { font-size: 68px; } }
+  #landing .accent { color: var(--red); }
+  #landing p.lead { max-width: 560px; color: var(--text-dim); line-height: 1.6; font-size: 16px; }
+  .cta {
+    display: inline-flex; align-items: center; gap: 10px; border: 1px solid var(--red); background: var(--red);
+    color: #0a0a0a; padding: 16px 28px; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 13px;
+    text-transform: uppercase; letter-spacing: 0.1em; cursor: pointer; transition: all .15s ease;
+  }
+  .cta:hover { background: transparent; color: var(--red); }
+  .cta:disabled { opacity: .35; cursor: not-allowed; }
+  footer.strip { display: grid; grid-template-columns: 1fr; gap: 20px; border-top: 1px solid var(--line); padding-top: 20px; }
+  @media (min-width: 768px) { footer.strip { grid-template-columns: repeat(3,1fr); } }
+
+  /* ---- Discovery flow ---- */
+  #discovery { display: flex; flex-direction: column; }
+  .progress-track { height: 4px; width: 100%; background: var(--line); }
+  .progress-fill { height: 4px; background: var(--red); transition: width .3s ease; width: 0%; }
+  .flow-wrap { max-width: 640px; margin: 0 auto; padding: 40px 24px; flex: 1; display: flex; flex-direction: column; width: 100%; }
+  .flow-top { display: flex; justify-content: space-between; margin-bottom: 40px; }
+  .step { animation: fadeIn .28s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateX(16px);} to { opacity:1; transform: translateX(0);} }
+  .q-label { font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 20px; margin-bottom: 12px; }
+  .q-hint { font-size: 12px; color: var(--text-faint); margin-bottom: 12px; }
+  .field-group { margin-bottom: 28px; }
+  input[type=text], input[type=email], textarea {
+    width: 100%; background: transparent; border: none; border-bottom: 2px solid var(--line-strong);
+    color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 15px; padding: 10px 0; outline: none;
+  }
+  input:focus, textarea:focus { border-color: var(--red); }
+  textarea { resize: none; }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip { border: 1px solid var(--line-strong); background: transparent; color: var(--text); padding: 9px 16px; font-size: 13px; font-family: 'JetBrains Mono', monospace; cursor: pointer; transition: all .12s ease; }
+  .chip:hover { border-color: var(--red); }
+  .chip.selected { border-color: var(--red); background: var(--red); color: #0a0a0a; }
+  .nav-row { margin-top: auto; padding-top: 40px; display: flex; justify-content: space-between; align-items: center; }
+  .back-btn { background: none; border: none; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; letter-spacing: 0.1em; text-transform: uppercase; font-size: 11px; cursor: pointer; }
+  .back-btn:disabled { opacity: .2; cursor: default; }
+  .back-btn:hover:not(:disabled) { color: var(--text); }
+
+  /* ---- Results ---- */
+  #results .wrap { max-width: 760px; margin: 0 auto; padding: 64px 24px; }
+  .summary-card { position: relative; border: 1px solid var(--line-strong); padding: 32px; margin-bottom: 40px; }
+  .summary-card .corner { position: absolute; width: 16px; height: 16px; border-color: var(--red); }
+  .corner.tl { top:0; left:0; border-top: 2px solid; border-left: 2px solid; }
+  .corner.br { bottom:0; right:0; border-bottom: 2px solid; border-right: 2px solid; }
+  .summary-card h2 { font-size: 26px; margin: 0 0 20px; }
+  .sec { margin-bottom: 20px; }
+  .sec .label { color: var(--red); margin-bottom: 6px; }
+  .sec p, .sec li { color: var(--text-dim); line-height: 1.6; }
+  .sec ul { list-style: none; padding: 0; margin: 0; }
+  .sec li { display: flex; gap: 10px; margin-bottom: 6px; }
+  .sec li span.n { color: var(--text-faint); }
+  .calendly-mock { border: 1px solid var(--line-strong); padding: 40px; text-align: center; color: var(--text-dim); }
+  .doc-link { display: inline-block; color: var(--red); border-bottom: 1px solid var(--red); margin-bottom: 32px; text-decoration: none; font-size: 14px; }
+  .preview-banner {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 50; background: var(--red); color: #0a0a0a;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; text-align: center; padding: 8px; letter-spacing: 0.05em;
+  }
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+
+<!-- LANDING -->
+<section id="landing" class="screen active dot-grid">
+  <div class="wrap">
+    <header class="file-label">
+      <span>DOSSIER_OPEN // 2026</span>
+      <span>FILE_11 — DISCOVERY_ENGINE (PREVIEW)</span>
+    </header>
+    <div>
+      <p class="file-label"><span style="color:var(--red)">●</span> INTAKE_STATUS: OPEN</p>
+      <h1>This isn't a form.<br>It's a <span class="accent">read</span> on your business.</h1>
+      <p class="lead">Answer a branching set of questions — only the ones that apply to your goal, your channels, your maturity level. In return: a personalized digital strategy summary, a full report saved to your inbox, and a direct line to book a call.</p>
+      <div style="margin-top:40px; display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        <button class="cta" onclick="goTo('discovery'); renderStep();">Start Discovery →</button>
+        <span class="file-label" style="color:var(--text-faint)">~4 MIN · NO ACCOUNT REQUIRED</span>
+      </div>
+    </div>
+    <footer class="strip file-label">
+      <div><p style="color:var(--text-faint)">01</p><p>Branching intake — only relevant questions</p></div>
+      <div><p style="color:var(--text-faint)">02</p><p>AI-generated strategy, on screen instantly</p></div>
+      <div><p style="color:var(--text-faint)">03</p><p>Full report + booking link, sent to your inbox</p></div>
+    </footer>
+  </div>
+</section>
+
+<!-- DISCOVERY -->
+<section id="discovery" class="screen dot-grid">
+  <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  <div class="flow-wrap">
+    <div class="flow-top file-label">
+      <span>FILE_11 // DISCOVERY_ENGINE</span>
+      <span id="stepCounter">01 / 12</span>
+    </div>
+    <div id="stepContent" class="step"></div>
+    <div class="nav-row">
+      <button class="back-btn" id="backBtn" onclick="goBack()">← BACK</button>
+      <button class="cta" id="nextBtn" onclick="goNext()">Next →</button>
+    </div>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section id="results" class="screen dot-grid">
+  <div class="wrap">
+    <p class="file-label" style="margin-bottom:16px;"><span style="color:var(--red)">●</span> FILE_11 // STRATEGY_GENERATED (MOCKED)</p>
+    <div class="summary-card">
+      <span class="corner tl"></span><span class="corner br"></span>
+      <h2 id="rHeadline"></h2>
+      <div class="sec"><p class="label file-label">Diagnosis</p><p id="rDiagnosis"></p></div>
+      <div class="sec"><p class="label file-label">Recommended Focus</p><ul id="rFocus"></ul></div>
+      <div class="sec"><p class="label file-label">Quick Wins</p><ul id="rWins"></ul></div>
+      <div class="sec"><p class="label file-label">90-Day Direction</p><p id="rPlan"></p></div>
+    </div>
+    <a class="doc-link" href="#" onclick="alert('In the real build, this opens the Google Doc created for this submission.'); return false;">View your full strategy document →</a>
+    <div>
+      <p class="file-label" style="margin-bottom:12px;">FILE_11 // NEXT_STEP</p>
+      <h2 style="font-size:20px; margin-bottom:16px;">Want help putting this into motion?</h2>
+      <div class="calendly-mock">[ Calendly booking widget renders here in the live build ]</div>
+      <p style="font-size:13px; color:var(--text-faint); margin-top:16px;">Prefer email? We've also sent this to your inbox, along with a weekly check-in until we connect.</p>
+    </div>
+  </div>
+</section>
+
+<div class="preview-banner">STATIC PREVIEW — no data is sent anywhere, the strategy summary below is a mock, not a real Claude response</div>
+
+<script>
+const GOAL_PATHS = ["Brand Awareness","Lead Generation","Sales","Customer Retention","Community","Hiring","Authority","Product Launch"];
+const CHANNELS = ["Facebook","Instagram","TikTok","LinkedIn","YouTube","Pinterest","Google"];
+const INDUSTRIES = ["Retail / E-commerce","Food & Beverage","Health & Wellness","Real Estate","Professional Services","Education","Technology / SaaS","Creative / Agency","Other"];
+
+let answers = {
+  businessName:"", website:"", industry:"", location:"", contactEmail:"", contactName:"",
+  goalPath:"", buyingChannels:[], monthlyInquiries:"", monthlySales:"", salesObstacle:"", hasSalesProcess:"",
+  audienceFamiliarity:"", awarenessMetrics:[], perceptionGoal:"",
+  communityType:"", interactionFrequency:"", customersCreateContent:"",
+  repeatPurchaseRate:"", churnReason:"", hasLoyaltyProgram:"",
+  otherGoalPriority:"", otherGoalBaseline:"", otherGoalObstacle:"",
+  maturity:"", hasWebsiteAsset:"", hasLogo:"", hasBrandGuidelines:"", hasCRM:"", hasEmailListAsset:"",
+  monthlyBudgetExisting:"", hasAgency:"", hasKPIs:"", hasAnalytics:"", runningAds:"", usesCRM:"",
+  channels:[], channelFrequency:{},
+  runsPaidAds:"", adPlatforms:[], adBudgetRange:"", adCampaignGoal:"",
+  hasWebsite:"", monthlyTraffic:"", hasBookingSystem:"", hasGoogleAnalytics:"", hasSEOWork:"",
+  hasEmailList:"", subscriberCount:"", openRate:"", hasAutomations:"",
+  monthlyInvestment:"", allocation:[],
+  oneProblem:"", sixMonthSuccess:"", whatToAvoid:""
+};
+
+let stepIndex = 0;
+
+function goTo(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0,0);
+}
+
+function activeSteps(){
+  const steps = ["snapshot","objective"];
+  if (answers.goalPath) steps.push("branch");
+  steps.push("maturity");
+  if (["Just starting","We have a strategy","We have a full marketing team"].includes(answers.maturity)) steps.push("maturity_followup");
+  steps.push("channels");
+  if (answers.channels.length > 0) steps.push("channel_frequency");
+  steps.push("paid_ads");
+  if (answers.runsPaidAds === "Yes") steps.push("paid_ads_followup");
+  steps.push("website");
+  if (answers.hasWebsite === "Yes") steps.push("website_followup");
+  steps.push("email");
+  if (answers.hasEmailList === "Yes") steps.push("email_followup");
+  steps.push("budget","reflection");
+  return steps;
+}
+
+function chip(value, current, onClick){
+  const sel = (Array.isArray(current) ? current.includes(value) : current === value);
+  return `<button type="button" class="chip ${sel?'selected':''}" onclick='${onClick}'>${value}</button>`;
+}
+
+function fieldGroup(label, hint, inner){
+  return `<div class="field-group"><label class="q-label">${label}</label>${hint?`<p class="q-hint">${hint}</p>`:""}${inner}</div>`;
+}
+
+function textInput(key, placeholder, type="text"){
+  return `<input type="${type}" placeholder="${placeholder||''}" value="${answers[key]||''}" oninput="answers.${key}=this.value; refreshNav();" />`;
+}
+function textArea(key, placeholder){
+  return `<textarea rows="3" placeholder="${placeholder||''}" oninput="answers.${key}=this.value; refreshNav();">${answers[key]||''}</textarea>`;
+}
+function singleSelectHtml(key, options){
+  return `<div class="chip-row">${options.map(o=>chip(o, answers[key], `selectSingle('${key}','${o.replace(/'/g,"\\'")}')`)).join('')}</div>`;
+}
+function multiSelectHtml(key, options){
+  return `<div class="chip-row">${options.map(o=>chip(o, answers[key], `toggleMulti('${key}','${o.replace(/'/g,"\\'")}')`)).join('')}</div>`;
+}
+function yesNoHtml(key){ return singleSelectHtml(key, ["Yes","No"]); }
+
+function selectSingle(key, val){ answers[key] = val; renderStep(); }
+function toggleMulti(key, val){
+  const arr = answers[key];
+  const i = arr.indexOf(val);
+  if (i === -1) arr.push(val); else arr.splice(i,1);
+  renderStep();
+}
+
+const OTHER_GOAL_COPY = {
+  "Hiring": {p:"What roles are hardest to fill right now?", b:"How many qualified applicants do you get per opening?", o:"What's the biggest obstacle to attracting the right candidates?"},
+  "Authority": {p:"Who do you want to be seen as the go-to expert for?", b:"Where does your authority currently show up (press, speaking, content)?", o:"What's stopping people from recognizing that expertise today?"},
+  "Product Launch": {p:"What's the single most important outcome for this launch?", b:"What audience size do you already have to launch to?", o:"What's the biggest risk to this launch underperforming?"}
+};
+
+function renderBranch(){
+  const g = answers.goalPath;
+  if (g === "Sales" || g === "Lead Generation") {
+    return fieldGroup("How do customers currently buy?", "Select all that apply.", multiSelectHtml("buyingChannels", ["Website","Messenger","Phone","Walk-in","Email"]))
+      + fieldGroup("Average monthly inquiries?", null, textInput("monthlyInquiries","e.g. 40"))
+      + fieldGroup("Average monthly sales?", null, textInput("monthlySales","e.g. 12"))
+      + fieldGroup("Biggest obstacle to more sales?", null, textArea("salesObstacle"))
+      + fieldGroup("Do you have a defined sales process?", null, yesNoHtml("hasSalesProcess"));
+  }
+  if (g === "Brand Awareness") {
+    return fieldGroup("How familiar is your audience with your brand?", null, singleSelectHtml("audienceFamiliarity", ["Nobody knows us","Some know us","Fairly known","Industry leader"]))
+      + fieldGroup("Which metrics matter most?", "Select all that apply.", multiSelectHtml("awarenessMetrics", ["Reach","Impressions","Followers","Video Views","Website Visits"]))
+      + fieldGroup("What do you want people to think when they see your business?", null, textArea("perceptionGoal"));
+  }
+  if (g === "Community") {
+    return fieldGroup("Which community do you want to build?", null, singleSelectHtml("communityType", ["Customers","Professionals","Parents","Students","Businesses"]))
+      + fieldGroup("How often do followers interact currently?", null, singleSelectHtml("interactionFrequency", ["Rarely","Sometimes","Often","Constantly"]))
+      + fieldGroup("Do customers create content about you organically?", null, yesNoHtml("customersCreateContent"));
+  }
+  if (g === "Customer Retention") {
+    return fieldGroup("Current repeat-purchase rate, if known", "Optional.", textInput("repeatPurchaseRate","e.g. 30%"))
+      + fieldGroup("What causes customers to leave or stop buying?", null, textArea("churnReason"))
+      + fieldGroup("Do you have a loyalty or retention program?", null, yesNoHtml("hasLoyaltyProgram"));
+  }
+  const copy = OTHER_GOAL_COPY[g] || OTHER_GOAL_COPY["Product Launch"];
+  return fieldGroup(copy.p, null, textArea("otherGoalPriority"))
+    + fieldGroup(copy.b, null, textArea("otherGoalBaseline"))
+    + fieldGroup(copy.o, null, textArea("otherGoalObstacle"));
+}
+
+function renderStepContent(id){
+  switch(id){
+    case "snapshot":
+      return fieldGroup("Let's start with the basics.", null, textInput("businessName","Business name"))
+        + fieldGroup("Website (optional)", null, textInput("website","https://"))
+        + fieldGroup("Industry", null, singleSelectHtml("industry", INDUSTRIES))
+        + fieldGroup("Location", null, textInput("location","City, Country"))
+        + fieldGroup("Your name", null, textInput("contactName","Full name"))
+        + fieldGroup("Your email", "Required — this is where your strategy and doc link go.", textInput("contactEmail","you@business.com","email"));
+    case "objective":
+      return fieldGroup("What's your top priority right now?", null, singleSelectHtml("goalPath", GOAL_PATHS));
+    case "branch":
+      return renderBranch();
+    case "maturity":
+      return fieldGroup("Which best describes your business today?", null, singleSelectHtml("maturity", ["Just starting","Posting occasionally","Posting consistently","We have a strategy","We have a full marketing team"]));
+    case "maturity_followup":
+      if (answers.maturity === "Just starting") {
+        return fieldGroup("Do you already have a website?", null, yesNoHtml("hasWebsiteAsset"))
+          + fieldGroup("Do you have a logo?", null, yesNoHtml("hasLogo"))
+          + fieldGroup("Brand guidelines?", null, yesNoHtml("hasBrandGuidelines"))
+          + fieldGroup("A CRM?", null, yesNoHtml("hasCRM"))
+          + fieldGroup("An email list?", null, yesNoHtml("hasEmailListAsset"));
+      }
+      return fieldGroup("Monthly marketing budget?", null, singleSelectHtml("monthlyBudgetExisting", ["< $500","$500–1k","$1k–3k","$3k–5k","$5k+"]))
+        + fieldGroup("Working with an agency?", null, yesNoHtml("hasAgency"))
+        + fieldGroup("Tracking KPIs?", null, yesNoHtml("hasKPIs"))
+        + fieldGroup("Analytics in place?", null, yesNoHtml("hasAnalytics"))
+        + fieldGroup("Running paid ads already?", null, yesNoHtml("runningAds"))
+        + fieldGroup("Using a CRM day-to-day?", null, yesNoHtml("usesCRM"));
+    case "channels":
+      return fieldGroup("Which platforms do you actively use?", "Select all that apply.", multiSelectHtml("channels", CHANNELS));
+    case "channel_frequency":
+      return `<p class="q-label">How often do you post on each?</p>` + answers.channels.map(c=>
+        fieldGroup(c, null, singleSelectHtml2(c, ["Daily","Weekly","Rarely"]))
+      ).join('');
+    case "paid_ads":
+      return fieldGroup("Do you currently run paid advertising?", null, yesNoHtml("runsPaidAds"));
+    case "paid_ads_followup":
+      return fieldGroup("Which platforms?", null, multiSelectHtml("adPlatforms", ["Meta","Google","TikTok","LinkedIn","Other"]))
+        + fieldGroup("Monthly ad budget?", null, singleSelectHtml("adBudgetRange", ["< $500","$500–1k","$1k–3k","$3k–5k","$5k+"]))
+        + fieldGroup("What's the campaign goal?", null, textInput("adCampaignGoal","e.g. leads, sales, awareness"));
+    case "website":
+      return fieldGroup("Do you have a website?", null, yesNoHtml("hasWebsite"));
+    case "website_followup":
+      return fieldGroup("Monthly traffic?", null, singleSelectHtml("monthlyTraffic", ["< 500","500–2k","2k–10k","10k+","Not sure"]))
+        + fieldGroup("Booking system in place?", null, yesNoHtml("hasBookingSystem"))
+        + fieldGroup("Google Analytics installed?", null, yesNoHtml("hasGoogleAnalytics"))
+        + fieldGroup("Any SEO work done?", null, yesNoHtml("hasSEOWork"));
+    case "email":
+      return fieldGroup("Do you have an email list?", null, yesNoHtml("hasEmailList"));
+    case "email_followup":
+      return fieldGroup("Roughly how many subscribers?", null, singleSelectHtml("subscriberCount", ["< 500","500–2k","2k–10k","10k+"]))
+        + fieldGroup("Open rate, if known", null, textInput("openRate","e.g. 22%"))
+        + fieldGroup("Automations set up?", null, yesNoHtml("hasAutomations"));
+    case "budget":
+      return fieldGroup("Monthly marketing investment", null, singleSelectHtml("monthlyInvestment", ["< $500","$500–1k","$1k–3k","$3k–5k","$5k+"]))
+        + fieldGroup("How is it allocated?", "Select all that apply.", multiSelectHtml("allocation", ["Social","Paid Ads","SEO","Website","Video","Photo","Email","Influencers"]));
+    case "reflection":
+      return fieldGroup("If I could solve ONE problem for your business, what should it be?", "Be specific — this shapes your strategy.", textArea("oneProblem"))
+        + fieldGroup("What would success look like in 6 months?", null, textArea("sixMonthSuccess"))
+        + fieldGroup("What should I absolutely avoid doing with your brand?", "Optional.", textArea("whatToAvoid"));
+    default: return "";
+  }
+}
+
+function singleSelectHtml2(channelKey, options){
+  return `<div class="chip-row">${options.map(o=>{
+    const sel = answers.channelFrequency[channelKey] === o;
+    return `<button type="button" class="chip ${sel?'selected':''}" onclick="answers.channelFrequency['${channelKey}']='${o}'; renderStep();">${o}</button>`;
+  }).join('')}</div>`;
+}
+
+function canAdvance(id){
+  switch(id){
+    case "snapshot":
+      return answers.businessName && answers.industry && answers.location && answers.contactEmail.includes('@') && answers.contactName;
+    case "objective": return !!answers.goalPath;
+    case "maturity": return !!answers.maturity;
+    case "paid_ads": return !!answers.runsPaidAds;
+    case "website": return !!answers.hasWebsite;
+    case "email": return !!answers.hasEmailList;
+    case "budget": return !!answers.monthlyInvestment;
+    case "reflection": return !!(answers.oneProblem && answers.sixMonthSuccess);
+    default: return true;
+  }
+}
+
+function refreshNav(){
+  const steps = activeSteps();
+  const id = steps[stepIndex];
+  document.getElementById('nextBtn').disabled = !canAdvance(id);
+}
+
+function renderStep(){
+  const steps = activeSteps();
+  if (stepIndex >= steps.length) stepIndex = steps.length - 1;
+  const id = steps[stepIndex];
+  document.getElementById('stepContent').innerHTML = renderStepContent(id);
+  document.getElementById('stepCounter').textContent = String(stepIndex+1).padStart(2,'0') + ' / ' + String(steps.length).padStart(2,'0');
+  document.getElementById('progressFill').style.width = ((stepIndex+1)/steps.length*100) + '%';
+  document.getElementById('backBtn').disabled = stepIndex === 0;
+  const nextBtn = document.getElementById('nextBtn');
+  nextBtn.textContent = stepIndex === steps.length - 1 ? 'Submit' : 'Next →';
+  nextBtn.disabled = !canAdvance(id);
+}
+
+function goNext(){
+  const steps = activeSteps();
+  const id = steps[stepIndex];
+  if (!canAdvance(id)) return;
+  if (stepIndex === steps.length - 1) { submitMock(); return; }
+  stepIndex++;
+  renderStep();
+}
+function goBack(){
+  if (stepIndex === 0) return;
+  stepIndex--;
+  renderStep();
+}
+
+function submitMock(){
+  // Mocked "AI summary" — in the live build this comes from a real Claude API call.
+  const g = answers.goalPath || "your business";
+  document.getElementById('rHeadline').textContent = `A focused ${g.toLowerCase()} push for ${answers.businessName || 'your business'}`;
+  document.getElementById('rDiagnosis').textContent = `Based on your maturity stage (${answers.maturity || 'n/a'}) and current channels (${answers.channels.join(', ') || 'none listed'}), the fastest lever right now is tightening the path from attention to action — not adding more channels.`;
+  const focus = ["Sharpen the offer for your stated goal","Fix the highest-friction step in your current funnel","Instrument what you're not yet measuring"];
+  const wins = ["Audit your top-performing post from the last 30 days","Add one clear CTA to your bio/profile links","Set up basic tracking on your website or booking flow"];
+  document.getElementById('rFocus').innerHTML = focus.map((f,i)=>`<li><span class="n">${String(i+1).padStart(2,'0')}</span>${f}</li>`).join('');
+  document.getElementById('rWins').innerHTML = wins.map((f,i)=>`<li><span class="n">${String(i+1).padStart(2,'0')}</span>${f}</li>`).join('');
+  document.getElementById('rPlan').textContent = `Over the next 90 days: stabilize what's already working, close the biggest gap named above ("${answers.oneProblem || 'the one problem you named'}"), and re-check progress against your 6-month definition of success.`;
+  goTo('results');
+}
+
+renderStep();
+</script>
+</body>
+</html>
