@@ -1,0 +1,132 @@
+@import "tailwindcss";
+
+:root {
+  --dossier-bg: #0a0a0a;
+  --dossier-bg-raised: #121212;
+  --dossier-red: #d42b2b;
+  --dossier-line: rgba(255, 255, 255, 0.1);
+  --dossier-line-strong: rgba(255, 255, 255, 0.18);
+  --dossier-text: #ededed;
+  --dossier-text-dim: rgba(237, 237, 237, 0.55);
+  --dossier-text-faint: rgba(237, 237, 237, 0.32);
+}
+
+@theme inline {
+  --color-bg: var(--dossier-bg);
+  --color-bg-raised: var(--dossier-bg-raised);
+  --color-red: var(--dossier-red);
+  --color-line: var(--dossier-line);
+  --color-text: var(--dossier-text);
+  --color-text-dim: var(--dossier-text-dim);
+  --color-text-faint: var(--dossier-text-faint);
+  --font-display: var(--font-space-grotesk);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: var(--dossier-bg);
+  color: var(--dossier-text);
+  font-family: var(--font-jetbrains-mono), monospace;
+}
+
+::selection {
+  background: var(--dossier-red);
+  color: #0a0a0a;
+}
+
+/* Scanline texture overlay — ambient, not decorative-for-its-own-sake:
+   reinforces the "surveillance dossier" register the copy uses. */
+.scanlines {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 40;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.025) 0px,
+    rgba(255, 255, 255, 0.025) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  mix-blend-mode: overlay;
+  opacity: 0.5;
+}
+
+.dot-grid {
+  background-image: radial-gradient(var(--dossier-line) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Corner bracket motif — used to frame a single focal element (the current
+   question, the summary card) rather than sprinkled decoratively. */
+.brackets {
+  position: relative;
+}
+.brackets::before,
+.brackets::after,
+.brackets > .bracket-tr,
+.brackets > .bracket-bl {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border-color: var(--dossier-red);
+  opacity: 0.9;
+}
+.brackets::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid;
+  border-left: 2px solid;
+}
+.brackets::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid;
+  border-right: 2px solid;
+}
+
+.file-label {
+  font-family: var(--font-jetbrains-mono), monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  color: var(--dossier-text-dim);
+}
+
+.hairline {
+  border-color: var(--dossier-line);
+}
+
+@keyframes blink-caret {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+.caret {
+  animation: blink-caret 1s step-end infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
