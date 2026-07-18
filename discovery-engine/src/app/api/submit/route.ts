@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { DiscoveryAnswers, SubmitResponse } from "@/lib/types";
-import { generateStrategySummary } from "@/lib/anthropic";
+import { generateStrategySummary } from "@/lib/gemini";
 import { createStrategyDoc } from "@/lib/drive";
 import { upsertLead } from "@/lib/sheets";
 import { sendEmail } from "@/lib/gmail";
