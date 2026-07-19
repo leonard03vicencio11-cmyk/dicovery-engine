@@ -127,13 +127,8 @@ export async function POST(req: NextRequest) {
                   method: "POST",
                   headers: { "Content-Type": "application/json", Accept: "application/json" },
                   body: JSON.stringify({
-                            name: body.contactName,
-                            email: body.contactEmail,
-                            business: body.businessName,
-                            industry: body.industry,
-                            location: body.location,
-                            goalPath: body.goalPath,
-                            docLink: docLink || "",
+...body,
+                    docLink: docLink || "",
                   }),
           });
     } catch (err) {
