@@ -121,6 +121,25 @@ export async function POST(req: NextRequest) {
     console.error("Confirmation email failed:", err);
   }
 
+    // 5. Formspree copy - non-fatal on failure, sends a copy of every submission to Formspree
+    try {
+          await fetch("https://formspree.io/f/xrenqgwe", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json", Accept: "application/json" },
+                  body: JSON.stringify({
+                            name: body.contactName,
+                            email: body.contactEmail,
+                            business: body.businessName,
+                            industry: body.industry,
+                            location: body.location,
+                            goalPath: body.goalPath,
+                            docLink: docLink || "",
+                  }),
+          });
+    } catch (err) {
+          console.error("Formspree notification failed:", err);
+    }
+
   const response: SubmitResponse = { summary, docLink, calendlyUrl, aiFailed };
   return NextResponse.json(response);
 }
